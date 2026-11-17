@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en" class="dark scroll-smooth">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>J.A.D. Praveen Roshane De Silva — Full-Stack Software Engineer</title>
+    <meta name="description" content="Interactive 3D portfolio of J.A.D. Praveen Roshane De Silva, Senior Full-Stack Software Engineer specializing in React, .NET, Azure, scalable backend systems, and modern web engineering." />
+    <meta property="og:title" content="J.A.D. Praveen Roshane De Silva — Full-Stack Software Engineer" />
+    <meta property="og:description" content="Interactive 3D portfolio of J.A.D. Praveen Roshane De Silva, Senior Full-Stack Software Engineer specializing in React, .NET, Azure, scalable backend systems, and modern web engineering." />
+    <meta property="og:type" content="website" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Syne:wght@600;700;800&display=swap" rel="stylesheet" />
+    <script>
+      (function () {
+        try {
+          var stored = localStorage.getItem('portfolio-theme');
+          var isLight = stored === 'light';
+          document.documentElement.classList.toggle('dark', !isLight);
+          document.documentElement.style.colorScheme = isLight ? 'light' : 'dark';
+        } catch (e) {}
+      })();
+    </script>
+  </head>
+  <body class="bg-[#F8FAFC] text-slate-950 dark:bg-[#050507] dark:text-[#F4F4F6] antialiased selection:bg-cyan-700/15 selection:text-cyan-900 dark:selection:bg-cyan-400/20 dark:selection:text-cyan-300 overflow-x-hidden transition-colors duration-200">
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
+
