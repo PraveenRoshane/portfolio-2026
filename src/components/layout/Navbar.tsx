@@ -1,11 +1,10 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Menu, X, FileText, Sun, Moon } from 'lucide-react';
+import { Menu, X, FileText } from 'lucide-react';
 import { PERSONAL_INFO } from '@/src/data/portfolio';
-import { gsap, ScrollTrigger } from '@/src/animations/gsap';
-import { REDUCED_MOTION_QUERY } from '@/src/lib/utils';
 import { usePrefersReducedMotion } from '@/src/lib/usePrefersReducedMotion';
 import { useFocusTrap } from '@/src/lib/useFocusTrap';
 import { useTheme } from '@/src/lib/ThemeContext';
+import SwitchButton from '@/src/components/kokonutui/switch-button';
 
 interface NavbarProps {
   onOpenResume: () => void;
@@ -25,7 +24,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenResume }) => {
   const [scrolled, setScrolled] = useState(false);
   const [activeSection, setActiveSection] = useState('home');
   const reducedMotion = usePrefersReducedMotion();
-  const { theme, toggleTheme } = useTheme();
+  const { theme, setTheme } = useTheme();
   const headerRef = useRef<HTMLElement>(null);
   const navRef = useRef<HTMLElement>(null);
   const indicatorTrackRef = useRef<HTMLSpanElement>(null);
@@ -53,16 +52,14 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenResume }) => {
     if (!fillEl || !visible || navWidth <= 0) return;
 
     const clamped = Math.max(0.12, Math.min(1, progress));
-    gsap.set(fillEl, {
-      x: left,
-      scaleX: (width * clamped) / navWidth,
-      opacity: 1,
-    });
+    fillEl.style.transform = `translateX(${left}px) scaleX(${(width * clamped) / navWidth})`;
+    fillEl.style.opacity = '1';
   }, []);
 
   // Glide the active nav track & fill to match the active (or hovered) link bounds
   const positionNavIndicator = useCallback(
     (targetSectionId: string, progress: number, immediate = false) => {
+      if (typeof window !== 'undefined' && window.innerWidth < 768) return;
       const navEl = navRef.current;
       const trackEl = indicatorTrackRef.current;
       const fillEl = indicatorFillRef.current;
@@ -74,11 +71,18 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenResume }) => {
 
       if (!linkEl || linkEl.offsetParent === null) {
         activeMetricsRef.current = { left: 0, width: 0, navWidth, visible: false };
-        gsap.to([trackEl, fillEl], {
-          opacity: 0,
-          duration: immediate || reducedMotion ? 0 : 0.18,
-          overwrite: 'auto',
-        });
+        if (immediate || reducedMotion) {
+          trackEl.style.opacity = '0';
+          fillEl.style.opacity = '0';
+        } else {
+          void import('@/src/animations/gsap').then(({ gsap }) => {
+            gsap.to([trackEl, fillEl], {
+              opacity: 0,
+              duration: 0.18,
+              overwrite: 'auto',
+            });
+          });
+        }
         return;
       }
 
@@ -88,34 +92,30 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenResume }) => {
       activeMetricsRef.current = { left, width, navWidth, visible: true };
 
       if (immediate || reducedMotion) {
-        gsap.set(trackEl, {
-          x: left,
-          scaleX: width / navWidth,
-          opacity: 1,
-        });
-        gsap.set(fillEl, {
-          x: left,
-          scaleX: (width * clamped) / navWidth,
-          opacity: 1,
-        });
+        trackEl.style.transform = `translateX(${left}px) scaleX(${width / navWidth})`;
+        trackEl.style.opacity = '1';
+        fillEl.style.transform = `translateX(${left}px) scaleX(${(width * clamped) / navWidth})`;
+        fillEl.style.opacity = '1';
         return;
       }
 
-      gsap.to(trackEl, {
-        x: left,
-        scaleX: width / navWidth,
-        opacity: 1,
-        duration: 0.34,
-        ease: 'power3.out',
-        overwrite: 'auto',
-      });
-      gsap.to(fillEl, {
-        x: left,
-        scaleX: (width * clamped) / navWidth,
-        opacity: 1,
-        duration: 0.34,
-        ease: 'power3.out',
-        overwrite: 'auto',
+      void import('@/src/animations/gsap').then(({ gsap }) => {
+        gsap.to(trackEl, {
+          x: left,
+          scaleX: width / navWidth,
+          opacity: 1,
+          duration: 0.34,
+          ease: 'power3.out',
+          overwrite: 'auto',
+        });
+        gsap.to(fillEl, {
+          x: left,
+          scaleX: (width * clamped) / navWidth,
+          opacity: 1,
+          duration: 0.34,
+          ease: 'power3.out',
+          overwrite: 'auto',
+        });
       });
     },
     [reducedMotion]
@@ -124,7 +124,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenResume }) => {
   // Sync sliding indicator whenever activeSection changes or on resize
   useEffect(() => {
     activeSectionRef.current = activeSection;
-    positionNavIndicator(activeSection, sectionProgressRef.current);
+    positionNavIndicator(activeSection, sectionProgressRef.current, activeSection === 'home');
   }, [activeSection, positionNavIndicator]);
 
   useEffect(() => {
@@ -135,156 +135,161 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenResume }) => {
     return () => window.removeEventListener('resize', handleResize);
   }, [positionNavIndicator]);
 
-  // Dynamic ScrollTrigger section tracking + header elevation state
+  // Dynamic ScrollTrigger section tracking + header elevation state (deferred until first scroll)
   useEffect(() => {
-    const triggers: ScrollTrigger[] = [];
+    let cancelled = false;
+    const triggers: Array<{ kill: () => void }> = [];
+    let initializedScrollSpy = false;
 
-    const headerTrigger = ScrollTrigger.create({
-      start: 24,
-      end: 'max',
-      onEnter: () => setScrolled(true),
-      onLeaveBack: () => setScrolled(false),
-    });
-    triggers.push(headerTrigger);
-    setScrolled(window.scrollY > 24);
+    const initScrollSpy = () => {
+      if (initializedScrollSpy) return;
+      initializedScrollSpy = true;
 
-    const sections = NAV_LINKS.map((item) => ({
-      id: item.id,
-      el: document.getElementById(item.id),
-    })).filter((s): s is { id: string; el: HTMLElement } => s.el !== null);
+      void import('@/src/animations/gsap').then(({ ScrollTrigger }) => {
+        if (cancelled) return;
 
-    sections.forEach((section, idx) => {
-      const isFirst = idx === 0;
-      const isLast = idx === sections.length - 1;
-      const nextSection = !isLast ? sections[idx + 1] : null;
-      const nextStartOffset = idx + 1 === sections.length - 1 ? 'top 62%' : 'top 38%';
+        const headerTrigger = ScrollTrigger.create({
+          start: 24,
+          end: 'max',
+          onEnter: () => setScrolled(true),
+          onLeaveBack: () => setScrolled(false),
+        });
+        triggers.push(headerTrigger);
+        setScrolled(window.scrollY > 24);
 
-      const st = ScrollTrigger.create({
-        trigger: section.el,
-        start: isFirst ? 'top top' : isLast ? 'top 62%' : 'top 38%',
-        endTrigger: nextSection ? nextSection.el : document.documentElement,
-        end: nextSection ? nextStartOffset : 'bottom bottom',
-        onEnter: () => {
-          sectionProgressRef.current = 0;
-          setActiveSection(section.id);
-        },
-        onEnterBack: () => {
-          sectionProgressRef.current = 1;
-          setActiveSection(section.id);
-        },
-        onUpdate: (self) => {
-          if (self.isActive) {
-            if (activeSectionRef.current !== section.id) {
+        const sections = NAV_LINKS.map((item) => ({
+          id: item.id,
+          el: document.getElementById(item.id),
+        })).filter((s): s is { id: string; el: HTMLElement } => s.el !== null);
+
+        sections.forEach((section, idx) => {
+          const isFirst = idx === 0;
+          const isLast = idx === sections.length - 1;
+          const nextSection = !isLast ? sections[idx + 1] : null;
+          const nextStartOffset = idx + 1 === sections.length - 1 ? 'top 62%' : 'top 38%';
+
+          const st = ScrollTrigger.create({
+            trigger: section.el,
+            start: isFirst ? 'top top' : isLast ? 'top 62%' : 'top 38%',
+            endTrigger: nextSection ? nextSection.el : document.documentElement,
+            end: nextSection ? nextStartOffset : 'bottom bottom',
+            onEnter: () => {
+              sectionProgressRef.current = 0;
               setActiveSection(section.id);
-            }
-            sectionProgressRef.current = self.progress;
-            syncProgressFill(self.progress);
-          }
-        },
-      });
+            },
+            onEnterBack: () => {
+              sectionProgressRef.current = 1;
+              setActiveSection(section.id);
+            },
+            onUpdate: (self) => {
+              if (self.isActive) {
+                if (activeSectionRef.current !== section.id) {
+                  setActiveSection(section.id);
+                }
+                sectionProgressRef.current = self.progress;
+                syncProgressFill(self.progress);
+              }
+            },
+          });
 
-      triggers.push(st);
-    });
+          triggers.push(st);
+        });
 
-    // Ensure bottom of page always resolves to the final section on tall screens
-    if (sections.length > 0) {
-      const lastId = sections[sections.length - 1].id;
-      const bottomTrigger = ScrollTrigger.create({
-        trigger: document.documentElement,
-        start: 'bottom-=40 bottom',
-        onEnter: () => {
-          sectionProgressRef.current = 1;
-          setActiveSection(lastId);
-          syncProgressFill(1);
-        },
+        if (sections.length > 0) {
+          const lastId = sections[sections.length - 1].id;
+          const bottomTrigger = ScrollTrigger.create({
+            trigger: document.documentElement,
+            start: 'bottom-=40 bottom',
+            onEnter: () => {
+              sectionProgressRef.current = 1;
+              setActiveSection(lastId);
+              syncProgressFill(1);
+            },
+          });
+          triggers.push(bottomTrigger);
+        }
+
+        ScrollTrigger.refresh();
       });
-      triggers.push(bottomTrigger);
+    };
+
+    const onFirstScroll = () => {
+      initScrollSpy();
+    };
+
+    if (window.scrollY > 0) {
+      initScrollSpy();
+    } else {
+      window.addEventListener('scroll', onFirstScroll, { passive: true, once: true });
     }
 
-    // Refresh bounds after initial layout/fonts settle
-    const rafId = requestAnimationFrame(() => {
-      ScrollTrigger.refresh();
-      positionNavIndicator(activeSectionRef.current, sectionProgressRef.current, true);
-    });
-
     return () => {
-      cancelAnimationFrame(rafId);
+      cancelled = true;
+      window.removeEventListener('scroll', onFirstScroll);
       triggers.forEach((t) => t.kill());
     };
-  }, [positionNavIndicator, syncProgressFill]);
+  }, [syncProgressFill]);
 
-  useEffect(() => {
-    const header = headerRef.current;
-    if (!header) return;
-
-    const mm = gsap.matchMedia();
-
-    mm.add(
-      {
-        reduceMotion: REDUCED_MOTION_QUERY,
-        allowMotion: '(prefers-reduced-motion: no-preference)',
-      },
-      (context) => {
-        const { reduceMotion } = context.conditions ?? {};
-        if (reduceMotion) {
-          gsap.set(header, { opacity: 1, y: 0, clearProps: 'transform' });
-          return;
-        }
-        gsap.fromTo(
-          header,
-          { opacity: 0, y: -20 },
-          { opacity: 1, y: 0, duration: 0.8, ease: 'power3.out', delay: 0.1 }
-        );
-      },
-      header
-    );
-
-    return () => mm.revert();
-  }, []);
+  const hasToggledMobileMenuRef = useRef(false);
 
   useEffect(() => {
     const overlay = mobileOverlayRef.current;
     if (!overlay) return;
 
+    if (!hasToggledMobileMenuRef.current && !mobileMenuOpen) {
+      return;
+    }
+    hasToggledMobileMenuRef.current = true;
+
+    let cancelled = false;
+
     if (mobileMenuOpen) {
       document.body.style.overflow = 'hidden';
       if (reducedMotion) {
-        gsap.set(overlay, { autoAlpha: 1, y: 0 });
-        gsap.set('.mobile-nav-item', { opacity: 1, y: 0, clearProps: 'transform' });
+        overlay.style.visibility = 'visible';
+        overlay.style.opacity = '1';
       } else {
-        gsap.to(overlay, {
-          autoAlpha: 1,
-          y: 0,
-          duration: 0.35,
-          ease: 'power3.out',
-        });
-        gsap.fromTo(
-          '.mobile-nav-item',
-          { opacity: 0, y: 16 },
-          {
-            opacity: 1,
+        void import('@/src/animations/gsap').then(({ gsap }) => {
+          if (cancelled) return;
+          gsap.to(overlay, {
+            autoAlpha: 1,
             y: 0,
             duration: 0.35,
-            stagger: 0.05,
             ease: 'power3.out',
-          }
-        );
+          });
+          gsap.fromTo(
+            '.mobile-nav-item',
+            { opacity: 0, y: 16 },
+            {
+              opacity: 1,
+              y: 0,
+              duration: 0.35,
+              stagger: 0.05,
+              ease: 'power3.out',
+            }
+          );
+        });
       }
     } else {
       document.body.style.overflow = '';
       if (reducedMotion) {
-        gsap.set(overlay, { autoAlpha: 0, y: 0 });
+        overlay.style.visibility = 'hidden';
+        overlay.style.opacity = '0';
       } else {
-        gsap.to(overlay, {
-          autoAlpha: 0,
-          y: -12,
-          duration: 0.25,
-          ease: 'power2.in',
+        void import('@/src/animations/gsap').then(({ gsap }) => {
+          if (cancelled) return;
+          gsap.to(overlay, {
+            autoAlpha: 0,
+            y: -12,
+            duration: 0.25,
+            ease: 'power2.in',
+          });
         });
       }
     }
 
     return () => {
+      cancelled = true;
       document.body.style.overflow = '';
     };
   }, [mobileMenuOpen, mobileOverlayRef, reducedMotion]);
@@ -357,12 +362,12 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenResume }) => {
             : 'bg-transparent border-b border-slate-200/70 dark:border-white/5'
         }`}
       >
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4 lg:gap-8">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-2 sm:gap-4 lg:gap-8">
           {/* Zone 1: Single text element wordmark */}
           <a
             href="#home"
             onClick={(e) => handleNavClick(e, NAV_LINKS[0])}
-            className="font-display text-lg font-bold tracking-tight text-slate-950 hover:text-cyan-800 dark:text-white dark:hover:text-cyan-300 transition-colors whitespace-nowrap shrink-0 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-700 dark:focus-visible:ring-cyan-400 focus-visible:ring-offset-2 focus-visible:ring-offset-[#F8FAFC] dark:focus-visible:ring-offset-[#050507]"
+            className="font-display text-base sm:text-lg font-bold tracking-tight text-slate-950 hover:text-cyan-800 dark:text-white dark:hover:text-cyan-300 transition-colors whitespace-nowrap shrink-0 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-700 dark:focus-visible:ring-cyan-400 focus-visible:ring-offset-2 focus-visible:ring-offset-[#F8FAFC] dark:focus-visible:ring-offset-[#050507]"
           >
             {PERSONAL_INFO.brandMark}
           </a>
@@ -426,32 +431,22 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenResume }) => {
           </nav>
 
           {/* Zone 3: Theme Toggle & Primary Actions */}
-          <div className="flex items-center gap-2.5 sm:gap-3 shrink-0">
-            <button
-              type="button"
-              onClick={toggleTheme}
-              aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
-              aria-pressed={theme === 'light'}
+          <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
+            <SwitchButton
+              theme={theme}
+              onThemeChange={setTheme}
+              size="default"
+              showLabel
+              reveal
+              aria-label="Toggle Light or Dark theme"
               title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
-              className="inline-flex items-center justify-center gap-1.5 h-9 px-2.5 sm:px-3 text-xs font-medium rounded-lg bg-white text-slate-800 border border-slate-300 hover:border-cyan-700 hover:text-cyan-800 dark:bg-[#111118] dark:text-zinc-200 dark:border-white/15 dark:hover:border-cyan-400/50 dark:hover:text-cyan-300 transition-colors whitespace-nowrap shrink-0 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-700 dark:focus-visible:ring-cyan-400 focus-visible:ring-offset-2 focus-visible:ring-offset-[#F8FAFC] dark:focus-visible:ring-offset-[#050507]"
-            >
-              {theme === 'dark' ? (
-                <>
-                  <Sun className="w-3.5 h-3.5 text-amber-300" aria-hidden="true" />
-                  <span className="hidden lg:inline">Light</span>
-                </>
-              ) : (
-                <>
-                  <Moon className="w-3.5 h-3.5 text-cyan-800" aria-hidden="true" />
-                  <span className="hidden lg:inline">Dark</span>
-                </>
-              )}
-            </button>
+              className="text-xs! px-2.5! sm:px-3! gap-1.5! sm:gap-2! bg-white! text-slate-800! border-slate-300! hover:border-cyan-700! hover:text-cyan-800! hover:bg-slate-50! dark:bg-[#111118]! dark:text-zinc-200! dark:border-white/15! dark:hover:border-cyan-400/50! dark:hover:text-cyan-300! dark:hover:bg-[#171721]! focus-visible:ring-cyan-700! dark:focus-visible:ring-cyan-400! focus-visible:ring-offset-[#F8FAFC]! dark:focus-visible:ring-offset-[#050507]!"
+            />
 
             <button
               type="button"
               onClick={onOpenResume}
-              className="inline-flex items-center gap-2 h-9 px-3 sm:px-3.5 text-xs font-medium text-slate-800 bg-white border border-slate-300 rounded-lg hover:border-cyan-700 hover:text-cyan-800 dark:text-zinc-200 dark:bg-[#111118] dark:border-white/15 dark:hover:border-cyan-400/50 dark:hover:text-cyan-300 transition-colors whitespace-nowrap shrink-0 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-700 dark:focus-visible:ring-cyan-400 focus-visible:ring-offset-2 focus-visible:ring-offset-[#F8FAFC] dark:focus-visible:ring-offset-[#050507]"
+              className="inline-flex items-center gap-1.5 sm:gap-2 h-9 px-2.5 sm:px-3.5 text-xs font-medium text-slate-800 bg-white border border-slate-300 rounded-lg hover:border-cyan-700 hover:text-cyan-800 dark:text-zinc-200 dark:bg-[#111118] dark:border-white/15 dark:hover:border-cyan-400/50 dark:hover:text-cyan-300 transition-colors whitespace-nowrap shrink-0 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-700 dark:focus-visible:ring-cyan-400 focus-visible:ring-offset-2 focus-visible:ring-offset-[#F8FAFC] dark:focus-visible:ring-offset-[#050507]"
             >
               <FileText className="w-3.5 h-3.5 text-cyan-700 dark:text-cyan-400" />
               <span>Resume</span>

@@ -1,5 +1,4 @@
 import React, { useRef, useEffect } from 'react';
-import { gsap } from '@/src/animations/gsap';
 import { cn, isTouchDevice } from '@/src/lib/utils';
 import { usePrefersReducedMotion } from '@/src/lib/usePrefersReducedMotion';
 
@@ -31,17 +30,31 @@ export const MagneticButton: React.FC<MagneticButtonProps> = ({
 
   useEffect(() => {
     const el = elRef.current;
-    if (!el) return;
+    if (!el || reducedMotion || isTouchDevice()) return;
 
-    if (reducedMotion || isTouchDevice()) {
-      gsap.set(el, { x: 0, y: 0, clearProps: 'transform' });
-      return;
-    }
+    let cancelled = false;
+    let xTo: ((value: number) => void) | null = null;
+    let yTo: ((value: number) => void) | null = null;
+    let loadingGsap = false;
+    let hasMoved = false;
 
-    const xTo = gsap.quickTo(el, 'x', { duration: 0.4, ease: 'power3.out' });
-    const yTo = gsap.quickTo(el, 'y', { duration: 0.4, ease: 'power3.out' });
+    const ensureQuickTo = async () => {
+      if (xTo && yTo) return true;
+      if (loadingGsap) return false;
+      loadingGsap = true;
+      const { gsap } = await import('@/src/animations/gsap');
+      if (cancelled || !elRef.current) return false;
+      xTo = gsap.quickTo(elRef.current, 'x', { duration: 0.4, ease: 'power3.out' });
+      yTo = gsap.quickTo(elRef.current, 'y', { duration: 0.4, ease: 'power3.out' });
+      return true;
+    };
 
     const handleMouseMove = (e: MouseEvent) => {
+      if (!xTo || !yTo) {
+        void ensureQuickTo();
+        return;
+      }
+      hasMoved = true;
       const rect = el.getBoundingClientRect();
       const relX = e.clientX - (rect.left + rect.width / 2);
       const relY = e.clientY - (rect.top + rect.height / 2);
@@ -50,17 +63,21 @@ export const MagneticButton: React.FC<MagneticButtonProps> = ({
     };
 
     const handleMouseLeave = () => {
-      xTo(0);
-      yTo(0);
+      if (!hasMoved) return;
+      xTo?.(0);
+      yTo?.(0);
     };
 
-    el.addEventListener('mousemove', handleMouseMove);
+    el.addEventListener('mousemove', handleMouseMove, { passive: true });
     el.addEventListener('mouseleave', handleMouseLeave);
 
     return () => {
+      cancelled = true;
       el.removeEventListener('mousemove', handleMouseMove);
       el.removeEventListener('mouseleave', handleMouseLeave);
-      gsap.set(el, { x: 0, y: 0, clearProps: 'transform' });
+      if (hasMoved) {
+        el.style.transform = '';
+      }
     };
   }, [reducedMotion]);
 

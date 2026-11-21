@@ -1,5 +1,4 @@
 import React, { useEffect, useRef } from 'react';
-import { gsap } from '@/src/animations/gsap';
 import { usePrefersReducedMotion } from '@/src/lib/usePrefersReducedMotion';
 
 export const ScrollProgress: React.FC = () => {
@@ -10,47 +9,69 @@ export const ScrollProgress: React.FC = () => {
     const bar = barRef.current;
     if (!bar) return;
 
-    let setScaleX: (value: number) => void = (value: number) => {
-      gsap.set(bar, { scaleX: value });
-    };
+    let cancelled = false;
+    let quickScaleX: ((value: number) => void) | null = null;
+    let gsapPromise: Promise<void> | null = null;
+    let resizeObserver: ResizeObserver | null = null;
 
-    const ctx = gsap.context(() => {
-      gsap.set(bar, { scaleX: 0, transformOrigin: 'left center' });
-
-      if (!reducedMotion) {
-        const quickScaleX = gsap.quickTo(bar, 'scaleX', {
+    const ensureQuickScaleX = () => {
+      if (quickScaleX || gsapPromise || reducedMotion) return;
+      gsapPromise = import('@/src/animations/gsap').then(({ gsap }) => {
+        if (cancelled || !barRef.current) return;
+        const qt = gsap.quickTo(barRef.current, 'scaleX', {
           duration: 0.16,
           ease: 'power2.out',
         });
-        setScaleX = (value: number) => quickScaleX(value);
-      }
-    }, bar);
+        quickScaleX = (v: number) => qt(v);
+      });
+    };
 
     const updateProgress = () => {
       const scrollTop = window.scrollY || document.documentElement.scrollTop;
-      const maxScroll =
-        document.documentElement.scrollHeight - window.innerHeight;
-      const progress =
-        maxScroll > 0 ? Math.min(Math.max(scrollTop / maxScroll, 0), 1) : 0;
-      setScaleX(progress);
+      const maxScroll = document.documentElement.scrollHeight - window.innerHeight;
+      const progress = maxScroll > 0 ? Math.min(Math.max(scrollTop / maxScroll, 0), 1) : 0;
+
+      if (reducedMotion) {
+        bar.style.transform = `scaleX(${progress})`;
+        return;
+      }
+
+      if (!quickScaleX) {
+        ensureQuickScaleX();
+        bar.style.transform = `scaleX(${progress})`;
+        return;
+      }
+
+      quickScaleX(progress);
     };
 
-    updateProgress();
+    const startTracking = () => {
+      updateProgress();
+      if (typeof ResizeObserver !== 'undefined' && !resizeObserver) {
+        resizeObserver = new ResizeObserver(updateProgress);
+        resizeObserver.observe(document.documentElement);
+      }
+    };
+
+    const onFirstScroll = () => {
+      startTracking();
+    };
+
+    if (window.scrollY > 0) {
+      startTracking();
+    } else {
+      window.addEventListener('scroll', onFirstScroll, { passive: true, once: true });
+    }
 
     window.addEventListener('scroll', updateProgress, { passive: true });
     window.addEventListener('resize', updateProgress, { passive: true });
 
-    const resizeObserver =
-      typeof ResizeObserver !== 'undefined'
-        ? new ResizeObserver(updateProgress)
-        : null;
-    resizeObserver?.observe(document.documentElement);
-
     return () => {
+      cancelled = true;
+      window.removeEventListener('scroll', onFirstScroll);
       window.removeEventListener('scroll', updateProgress);
       window.removeEventListener('resize', updateProgress);
       resizeObserver?.disconnect();
-      ctx.revert();
     };
   }, [reducedMotion]);
 

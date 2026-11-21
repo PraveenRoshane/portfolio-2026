@@ -1,6 +1,6 @@
 import React, { useRef, useEffect } from 'react';
-import { gsap } from '@/src/animations/gsap';
-import { cn, REDUCED_MOTION_QUERY } from '@/src/lib/utils';
+import { cn } from '@/src/lib/utils';
+import { animateSectionReveal } from '@/src/animations/scrollAnimations';
 
 interface SectionHeadingProps {
   index: string;
@@ -22,44 +22,7 @@ export const SectionHeading: React.FC<SectionHeadingProps> = ({
   const headingRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const el = headingRef.current;
-    if (!el) return;
-
-    const mm = gsap.matchMedia();
-
-    mm.add(
-      {
-        reduceMotion: REDUCED_MOTION_QUERY,
-        allowMotion: '(prefers-reduced-motion: no-preference)',
-      },
-      (context) => {
-        const { reduceMotion } = context.conditions ?? {};
-        if (reduceMotion) {
-          gsap.set('.sh-item', { opacity: 1, y: 0, clearProps: 'transform' });
-          return;
-        }
-
-        gsap.fromTo(
-          '.sh-item',
-          { opacity: 0, y: 24 },
-          {
-            opacity: 1,
-            y: 0,
-            duration: 0.8,
-            stagger: 0.08,
-            ease: 'power3.out',
-            scrollTrigger: {
-              trigger: el,
-              start: 'top 85%',
-              toggleActions: 'play none none none',
-            },
-          }
-        );
-      },
-      el
-    );
-
-    return () => mm.revert();
+    return animateSectionReveal(headingRef.current, '.sh-item');
   }, []);
 
   return (

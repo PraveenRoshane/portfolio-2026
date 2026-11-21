@@ -1,11 +1,35 @@
 @import "tailwindcss";
 @custom-variant dark (&:where(.dark, .dark *));
 
+@font-face {
+  font-family: 'Syne';
+  font-style: normal;
+  font-weight: 600 800;
+  font-display: swap;
+  src: url('/fonts/syne-latin.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Plus Jakarta Sans';
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  src: url('/fonts/plus-jakarta-sans-latin.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'JetBrains Mono';
+  font-style: normal;
+  font-weight: 400 600;
+  font-display: swap;
+  src: url('/fonts/jetbrains-mono-latin.woff2') format('woff2');
+}
+
 @layer base {
   :root {
     --font-display: 'Syne', sans-serif;
     --font-sans: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
-    --font-mono: 'JetBrains Mono', monospace;
+    --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
     --bg-canvas: #F8FAFC;
     --text-canvas: #020617;
     --grid-line: rgba(15, 23, 42, 0.06);
@@ -69,9 +93,90 @@
   background: var(--scrollbar-thumb-hover);
 }
 
+/* Skip offscreen layout/style/paint on below-the-fold sections during initial page load */
+.cv-section {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 720px;
+}
+
+/* Zero-JS GPU-composited horizon sparkle twinkle & ambient globe rotation */
+@keyframes sparkle-float {
+  0%, 100% {
+    opacity: var(--sp-min, 0.2);
+    transform: translate3d(0, 0, 0) scale(0.85);
+  }
+  50% {
+    opacity: var(--sp-max, 0.9);
+    transform: translate3d(var(--sp-dx, 2px), -10px, 0) scale(1.1);
+  }
+}
+
+.sparkle-dot {
+  animation: sparkle-float var(--sp-dur, 4s) ease-in-out var(--sp-delay, 0s) infinite;
+}
+
+@keyframes globe-drift {
+  0% {
+    transform: translate3d(0, 0, 0);
+  }
+  100% {
+    transform: translate3d(-50%, 0, 0);
+  }
+}
+
+.globe-land-drift {
+  animation: globe-drift 42s linear infinite;
+}
+
+@keyframes hero-settle {
+  0% {
+    transform: translate3d(0, 12px, 0);
+  }
+  100% {
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+.hero-headline-line,
+.hero-reveal-item,
+.hero-cta-item {
+  animation: hero-settle 0.52s cubic-bezier(0.22, 1, 0.36, 1) var(--hero-delay, 0ms) both;
+}
+
+@keyframes hero-sphere-settle {
+  0% {
+    transform: scale(0.985);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+.hero-sphere-container {
+  animation: hero-sphere-settle 0.6s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* Hide native scrollbar when paired with custom progress track and navigation controls */
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
 @media (prefers-reduced-motion: reduce) {
   html {
     scroll-behavior: auto !important;
+  }
+
+  .sparkle-dot,
+  .globe-land-drift,
+  .hero-headline-line,
+  .hero-reveal-item,
+  .hero-cta-item,
+  .hero-sphere-container {
+    animation: none !important;
   }
 
   *,

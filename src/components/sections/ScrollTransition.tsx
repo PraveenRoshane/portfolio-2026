@@ -1,5 +1,5 @@
 import React, { useRef, useEffect } from 'react';
-import { gsap } from '@/src/animations/gsap';
+import { observeWhenNearViewport } from '@/src/animations/scrollAnimations';
 import { REDUCED_MOTION_QUERY } from '@/src/lib/utils';
 
 const TRANSITION_WORDS = [
@@ -16,57 +16,88 @@ export const ScrollTransition: React.FC = () => {
     const el = sectionRef.current;
     if (!el) return;
 
-    const mm = gsap.matchMedia();
+    let cancelled = false;
+    let mm: { revert: () => void } | null = null;
+    let stopObserve: (() => void) | null = null;
 
-    mm.add(
-      {
-        reduceMotion: REDUCED_MOTION_QUERY,
-        allowMotion: '(prefers-reduced-motion: no-preference)',
-      },
-      (context) => {
-        const rows = gsap.utils.toArray<HTMLElement>('.transition-word-row');
-        const { reduceMotion } = context.conditions ?? {};
-
-        if (reduceMotion) {
-          gsap.set(rows, { opacity: 1, x: 0, scale: 1, clearProps: 'transform' });
-          return;
-        }
-
-        rows.forEach((row, index) => {
-          const dir = index % 2 === 0 ? -1 : 1;
-          gsap.fromTo(
-            row,
-            {
-              opacity: 0.2,
-              x: dir * 60,
-              scale: 0.96,
-            },
-            {
-              opacity: 1,
-              x: 0,
-              scale: 1,
-              ease: 'power2.out',
-              scrollTrigger: {
-                trigger: row,
-                start: 'top 90%',
-                end: 'top 45%',
-                scrub: 0.6,
+    const armTransition = () => {
+      if (cancelled || stopObserve) return;
+      stopObserve = observeWhenNearViewport(
+        el,
+        () => {
+          void import('@/src/animations/gsap').then(({ gsap }) => {
+            if (cancelled) return;
+            const localMm = gsap.matchMedia();
+            mm = localMm;
+            localMm.add(
+              {
+                reduceMotion: REDUCED_MOTION_QUERY,
+                allowMotion: '(prefers-reduced-motion: no-preference)',
               },
-            }
-          );
-        });
-      },
-      el
-    );
+              (context) => {
+                const rows = gsap.utils.toArray<HTMLElement>('.transition-word-row');
+                const { reduceMotion } = context.conditions ?? {};
 
-    return () => mm.revert();
+                if (reduceMotion) {
+                  gsap.set(rows, { opacity: 1, x: 0, scale: 1, clearProps: 'transform' });
+                  return;
+                }
+
+                rows.forEach((row, index) => {
+                  const dir = index % 2 === 0 ? -1 : 1;
+                  gsap.fromTo(
+                    row,
+                    {
+                      opacity: 0.2,
+                      x: dir * 60,
+                      scale: 0.96,
+                    },
+                    {
+                      opacity: 1,
+                      x: 0,
+                      scale: 1,
+                      ease: 'power2.out',
+                      scrollTrigger: {
+                        trigger: row,
+                        start: 'top 90%',
+                        end: 'top 45%',
+                        scrub: 0.6,
+                      },
+                    }
+                  );
+                });
+              },
+              el
+            );
+          });
+        },
+        '320px 0px'
+      );
+    };
+
+    const onFirstScroll = () => {
+      armTransition();
+    };
+
+    if (window.scrollY > 0) {
+      armTransition();
+    } else {
+      window.addEventListener('scroll', onFirstScroll, { passive: true, once: true });
+    }
+
+    return () => {
+      cancelled = true;
+      window.removeEventListener('scroll', onFirstScroll);
+      stopObserve?.();
+      mm?.revert();
+    };
   }, []);
 
   return (
     <section
       ref={sectionRef}
       aria-label="Engineering pillars"
-      className="relative py-20 sm:py-28 border-y border-slate-200 dark:border-white/10 bg-[#F1F5F9] dark:bg-[#07070B] overflow-hidden transition-colors duration-200"
+      className="cv-section relative py-20 sm:py-28 border-y border-slate-200 dark:border-white/10 bg-[#F1F5F9] dark:bg-[#07070B] overflow-hidden transition-colors duration-200"
     >
       <div className="section-entrance max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="divide-y divide-slate-300/80 dark:divide-white/10">

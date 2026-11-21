@@ -2,8 +2,7 @@ import React, { useRef, useEffect, useState } from 'react';
 import { ArrowUpRight, Copy, Check, FileText } from 'lucide-react';
 import { PERSONAL_INFO } from '@/src/data/portfolio';
 import { MagneticButton } from '@/src/components/ui/MagneticButton';
-import { gsap } from '@/src/animations/gsap';
-import { REDUCED_MOTION_QUERY } from '@/src/lib/utils';
+import { animateSectionReveal } from '@/src/animations/scrollAnimations';
 
 interface ContactProps {
   onOpenResume: () => void;
@@ -14,44 +13,7 @@ export const Contact: React.FC<ContactProps> = ({ onOpenResume }) => {
   const [copiedEmail, setCopiedEmail] = useState(false);
 
   useEffect(() => {
-    const el = sectionRef.current;
-    if (!el) return;
-
-    const mm = gsap.matchMedia();
-
-    mm.add(
-      {
-        reduceMotion: REDUCED_MOTION_QUERY,
-        allowMotion: '(prefers-reduced-motion: no-preference)',
-      },
-      (context) => {
-        const { reduceMotion } = context.conditions ?? {};
-        if (reduceMotion) {
-          gsap.set('.contact-reveal', { opacity: 1, y: 0, clearProps: 'transform' });
-          return;
-        }
-
-        gsap.fromTo(
-          '.contact-reveal',
-          { opacity: 0, y: 32 },
-          {
-            opacity: 1,
-            y: 0,
-            duration: 0.85,
-            stagger: 0.1,
-            ease: 'power3.out',
-            scrollTrigger: {
-              trigger: el,
-              start: 'top 80%',
-              toggleActions: 'play none none none',
-            },
-          }
-        );
-      },
-      el
-    );
-
-    return () => mm.revert();
+    return animateSectionReveal(sectionRef.current, '.contact-reveal');
   }, []);
 
   const handleCopyEmail = () => {
@@ -64,7 +26,7 @@ export const Contact: React.FC<ContactProps> = ({ onOpenResume }) => {
     <section
       id="contact"
       ref={sectionRef}
-      className="relative py-24 sm:py-32 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto border-t border-slate-200 dark:border-white/10"
+      className="cv-section relative py-24 sm:py-32 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto border-t border-slate-200 dark:border-white/10"
     >
       <div className="section-entrance relative p-8 sm:p-12 lg:p-16 rounded-2xl bg-white dark:bg-[#0B0B10] border border-slate-300/90 dark:border-white/10 shadow-xs dark:shadow-none overflow-hidden">
         {/* Subtle Radial Gradient Accent */}
@@ -114,7 +76,7 @@ export const Contact: React.FC<ContactProps> = ({ onOpenResume }) => {
           {/* Direct Contact Channels Grid */}
           <div className="contact-reveal pt-8 border-t border-slate-200 dark:border-white/10 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 text-sm">
             <div>
-              <div className="text-xs font-mono-tech text-slate-500 dark:text-zinc-500 mb-1">
+              <div className="text-xs font-mono-tech text-slate-600 dark:text-zinc-400 mb-1">
                 Email
               </div>
               <div className="flex items-center gap-2">
@@ -140,7 +102,7 @@ export const Contact: React.FC<ContactProps> = ({ onOpenResume }) => {
             </div>
 
             <div>
-              <div className="text-xs font-mono-tech text-slate-500 dark:text-zinc-500 mb-1">
+              <div className="text-xs font-mono-tech text-slate-600 dark:text-zinc-400 mb-1">
                 Phone
               </div>
               <a
@@ -152,7 +114,7 @@ export const Contact: React.FC<ContactProps> = ({ onOpenResume }) => {
             </div>
 
             <div>
-              <div className="text-xs font-mono-tech text-slate-500 dark:text-zinc-500 mb-1">
+              <div className="text-xs font-mono-tech text-slate-600 dark:text-zinc-400 mb-1">
                 Location
               </div>
               <div className="font-mono-tech text-xs sm:text-sm text-slate-900 dark:text-zinc-200">
@@ -161,7 +123,7 @@ export const Contact: React.FC<ContactProps> = ({ onOpenResume }) => {
             </div>
 
             <div>
-              <div className="text-xs font-mono-tech text-slate-500 dark:text-zinc-500 mb-1">
+              <div className="text-xs font-mono-tech text-slate-600 dark:text-zinc-400 mb-1">
                 Profiles
               </div>
               <div className="flex items-center gap-4 font-mono-tech text-xs sm:text-sm">

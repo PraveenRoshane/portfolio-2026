@@ -1,7 +1,7 @@
 import React, { useRef, useEffect } from 'react';
 import { EXPERIENCE_DATA } from '@/src/data/portfolio';
 import { SectionHeading } from '@/src/components/ui/SectionHeading';
-import { gsap } from '@/src/animations/gsap';
+import { animateSectionReveal, observeWhenNearViewport } from '@/src/animations/scrollAnimations';
 import { REDUCED_MOTION_QUERY } from '@/src/lib/utils';
 
 export const Experience: React.FC = () => {
@@ -12,71 +12,84 @@ export const Experience: React.FC = () => {
     const el = sectionRef.current;
     if (!el) return;
 
-    const mm = gsap.matchMedia();
+    const cleanupCards = animateSectionReveal(el, '.exp-achievement-card');
 
-    mm.add(
-      {
-        reduceMotion: REDUCED_MOTION_QUERY,
-        allowMotion: '(prefers-reduced-motion: no-preference)',
-      },
-      (context) => {
-        const cards = gsap.utils.toArray<HTMLElement>('.exp-achievement-card');
-        const { reduceMotion } = context.conditions ?? {};
+    let cancelled = false;
+    let mm: { revert: () => void } | null = null;
+    let stopObserve: (() => void) | null = null;
 
-        if (reduceMotion) {
-          gsap.set(cards, { opacity: 1, y: 0, clearProps: 'transform' });
-          if (progressLineRef.current) {
-            gsap.set(progressLineRef.current, { scaleY: 1 });
-          }
-          return;
-        }
-
-        if (progressLineRef.current) {
-          gsap.fromTo(
-            progressLineRef.current,
-            { scaleY: 0 },
-            {
-              scaleY: 1,
-              ease: 'none',
-              scrollTrigger: {
-                trigger: '.exp-timeline-wrapper',
-                start: 'top 70%',
-                end: 'bottom 75%',
-                scrub: 0.4,
+    const armTimeline = () => {
+      if (cancelled || stopObserve) return;
+      stopObserve = observeWhenNearViewport(
+        el,
+        () => {
+          void import('@/src/animations/gsap').then(({ gsap }) => {
+            if (cancelled) return;
+            const localMm = gsap.matchMedia();
+            mm = localMm;
+            localMm.add(
+              {
+                reduceMotion: REDUCED_MOTION_QUERY,
+                allowMotion: '(prefers-reduced-motion: no-preference)',
               },
-            }
-          );
-        }
+              (context) => {
+                const { reduceMotion } = context.conditions ?? {};
+                if (reduceMotion) {
+                  if (progressLineRef.current) {
+                    gsap.set(progressLineRef.current, { scaleY: 1 });
+                  }
+                  return;
+                }
 
-        cards.forEach((card) => {
-          gsap.fromTo(
-            card,
-            { opacity: 0, y: 28 },
-            {
-              opacity: 1,
-              y: 0,
-              duration: 0.75,
-              ease: 'power3.out',
-              scrollTrigger: {
-                trigger: card,
-                start: 'top 86%',
-                toggleActions: 'play none none none',
+                if (progressLineRef.current) {
+                  gsap.fromTo(
+                    progressLineRef.current,
+                    { scaleY: 0 },
+                    {
+                      scaleY: 1,
+                      ease: 'none',
+                      scrollTrigger: {
+                        trigger: '.exp-timeline-wrapper',
+                        start: 'top 70%',
+                        end: 'bottom 75%',
+                        scrub: 0.4,
+                      },
+                    }
+                  );
+                }
               },
-            }
-          );
-        });
-      },
-      el
-    );
+              el
+            );
+          });
+        },
+        '320px 0px'
+      );
+    };
 
-    return () => mm.revert();
+    const onFirstScroll = () => {
+      armTimeline();
+    };
+
+    if (window.scrollY > 0) {
+      armTimeline();
+    } else {
+      window.addEventListener('scroll', onFirstScroll, { passive: true, once: true });
+    }
+
+    return () => {
+      cancelled = true;
+      cleanupCards();
+      window.removeEventListener('scroll', onFirstScroll);
+      stopObserve?.();
+      mm?.revert();
+    };
   }, []);
 
   return (
     <section
       id="experience"
       ref={sectionRef}
-      className="relative py-24 sm:py-32 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto border-t border-slate-200 dark:border-white/10"
+      className="cv-section relative py-24 sm:py-32 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto border-t border-slate-200 dark:border-white/10"
     >
       <div className="section-entrance">
         <SectionHeading

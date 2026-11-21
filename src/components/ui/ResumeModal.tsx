@@ -79,6 +79,7 @@ PUBLICATION & RESEARCH
 ================================================================================
 ${PUBLICATION_DATA.title}
 Published in: ${PUBLICATION_DATA.journal} (${PUBLICATION_DATA.date})
+Official URL: ${PUBLICATION_DATA.url}
 
 ================================================================================
 EDUCATION
@@ -351,6 +352,15 @@ ${CERTIFICATIONS_DATA.map((c) => `• ${c.title} — ${c.issuer}`).join('\n')}
               <div className="text-xs text-slate-600 dark:text-zinc-400 mt-1">
                 {PUBLICATION_DATA.journal} · {PUBLICATION_DATA.date}
               </div>
+              <a
+                href={PUBLICATION_DATA.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 mt-1.5 text-xs font-mono-tech text-cyan-700 dark:text-cyan-400 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500 rounded"
+              >
+                <span>View Official IRJIET Publication</span>
+                <ExternalLink className="w-3 h-3 shrink-0" aria-hidden="true" />
+              </a>
             </div>
 
             <div>

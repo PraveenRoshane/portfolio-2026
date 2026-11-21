@@ -1,10 +1,9 @@
-import React, { useRef, useEffect } from 'react';
+import React from 'react';
 import { ArrowDownRight, FileText, ArrowUpRight } from 'lucide-react';
 import { PERSONAL_INFO } from '@/src/data/portfolio';
 import Earth from '@/src/components/ui/globe';
 import { Sparkles } from '@/src/components/ui/sparkles';
 import { MagneticButton } from '@/src/components/ui/MagneticButton';
-import { initHeroEntrance } from '@/src/animations/heroAnimations';
 import { useTheme } from '@/src/lib/ThemeContext';
 
 interface HeroProps {
@@ -12,19 +11,12 @@ interface HeroProps {
 }
 
 export const Hero: React.FC<HeroProps> = ({ onOpenResume }) => {
-  const heroRef = useRef<HTMLElement>(null);
   const { theme } = useTheme();
   const isDark = theme === 'dark';
-
-  useEffect(() => {
-    const cleanup = initHeroEntrance(heroRef.current);
-    return cleanup;
-  }, []);
 
   return (
     <section
       id="home"
-      ref={heroRef}
       className="relative min-h-screen pt-24 pb-16 lg:pt-28 lg:pb-20 flex items-center overflow-hidden bg-[#F8FAFC] text-slate-950 dark:bg-black dark:text-white bg-engineering-grid transition-colors duration-200"
     >
       {/* Radial Vignette Overlay */}

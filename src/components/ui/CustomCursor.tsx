@@ -1,5 +1,4 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { gsap } from '@/src/animations/gsap';
 import { isTouchDevice } from '@/src/lib/utils';
 import { usePrefersReducedMotion } from '@/src/lib/usePrefersReducedMotion';
 import { useTheme } from '@/src/lib/ThemeContext';
@@ -19,61 +18,77 @@ export const CustomCursor: React.FC = () => {
       return;
     }
 
-    setEnabled(true);
+    const onFirstMove = () => setEnabled(true);
+    window.addEventListener('mousemove', onFirstMove, { passive: true, once: true });
+    return () => window.removeEventListener('mousemove', onFirstMove);
   }, [reducedMotion]);
 
   useEffect(() => {
     if (!enabled || !dotRef.current || !ringRef.current) return;
 
-    const dot = dotRef.current;
-    const ring = ringRef.current;
+    let cancelled = false;
+    let onMouseMove: ((e: MouseEvent) => void) | null = null;
 
-    const xDot = gsap.quickTo(dot, 'x', { duration: 0.1, ease: 'power3.out' });
-    const yDot = gsap.quickTo(dot, 'y', { duration: 0.1, ease: 'power3.out' });
-    const xRing = gsap.quickTo(ring, 'x', { duration: 0.35, ease: 'power3.out' });
-    const yRing = gsap.quickTo(ring, 'y', { duration: 0.35, ease: 'power3.out' });
+    void import('@/src/animations/gsap').then(({ gsap }) => {
+      if (cancelled || !dotRef.current || !ringRef.current) return;
 
-    const onMouseMove = (e: MouseEvent) => {
-      xDot(e.clientX);
-      yDot(e.clientY);
-      xRing(e.clientX);
-      yRing(e.clientY);
+      const dot = dotRef.current;
+      const ring = ringRef.current;
 
-      const target = e.target as HTMLElement | null;
-      const interactive = target?.closest('a, button, [data-cursor]');
-      setIsHovered(Boolean(interactive));
-    };
+      const xDot = gsap.quickTo(dot, 'x', { duration: 0.1, ease: 'power3.out' });
+      const yDot = gsap.quickTo(dot, 'y', { duration: 0.1, ease: 'power3.out' });
+      const xRing = gsap.quickTo(ring, 'x', { duration: 0.35, ease: 'power3.out' });
+      const yRing = gsap.quickTo(ring, 'y', { duration: 0.35, ease: 'power3.out' });
 
-    window.addEventListener('mousemove', onMouseMove, { passive: true });
+      onMouseMove = (e: MouseEvent) => {
+        xDot(e.clientX);
+        yDot(e.clientY);
+        xRing(e.clientX);
+        yRing(e.clientY);
+
+        const target = e.target as HTMLElement | null;
+        const interactive = target?.closest('a, button, [data-cursor]');
+        setIsHovered(Boolean(interactive));
+      };
+
+      window.addEventListener('mousemove', onMouseMove, { passive: true });
+    });
+
     return () => {
-      window.removeEventListener('mousemove', onMouseMove);
+      cancelled = true;
+      if (onMouseMove) {
+        window.removeEventListener('mousemove', onMouseMove);
+      }
     };
   }, [enabled]);
 
   useEffect(() => {
     if (!enabled || !ringRef.current || !dotRef.current) return;
     const isDark = theme === 'dark';
-    gsap.to(ringRef.current, {
-      scale: isHovered ? 1.65 : 1,
-      borderColor: isHovered
-        ? isDark
-          ? 'rgba(0, 240, 255, 0.7)'
-          : 'rgba(14, 116, 144, 0.75)'
-        : isDark
-          ? 'rgba(255, 255, 255, 0.25)'
-          : 'rgba(15, 23, 42, 0.3)',
-      backgroundColor: isHovered
-        ? isDark
-          ? 'rgba(0, 240, 255, 0.08)'
-          : 'rgba(14, 116, 144, 0.08)'
-        : 'rgba(0, 0, 0, 0)',
-      duration: 0.2,
-      ease: 'power2.out',
-    });
-    gsap.to(dotRef.current, {
-      scale: isHovered ? 0.5 : 1,
-      duration: 0.2,
-      ease: 'power2.out',
+    void import('@/src/animations/gsap').then(({ gsap }) => {
+      if (!ringRef.current || !dotRef.current) return;
+      gsap.to(ringRef.current, {
+        scale: isHovered ? 1.65 : 1,
+        borderColor: isHovered
+          ? isDark
+            ? 'rgba(0, 240, 255, 0.7)'
+            : 'rgba(14, 116, 144, 0.75)'
+          : isDark
+            ? 'rgba(255, 255, 255, 0.25)'
+            : 'rgba(15, 23, 42, 0.3)',
+        backgroundColor: isHovered
+          ? isDark
+            ? 'rgba(0, 240, 255, 0.08)'
+            : 'rgba(14, 116, 144, 0.08)'
+          : 'rgba(0, 0, 0, 0)',
+        duration: 0.2,
+        ease: 'power2.out',
+      });
+      gsap.to(dotRef.current, {
+        scale: isHovered ? 0.5 : 1,
+        duration: 0.2,
+        ease: 'power2.out',
+      });
     });
   }, [isHovered, enabled, theme]);
 

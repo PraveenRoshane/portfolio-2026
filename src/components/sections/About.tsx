@@ -16,7 +16,7 @@ export const About: React.FC = () => {
     <section
       id="about"
       ref={sectionRef}
-      className="relative py-24 sm:py-32 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto"
+      className="cv-section relative py-24 sm:py-32 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto"
     >
       <div className="section-entrance">
         <SectionHeading

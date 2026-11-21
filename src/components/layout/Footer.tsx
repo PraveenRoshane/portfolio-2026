@@ -6,7 +6,7 @@ export const Footer: React.FC = () => {
   const currentYear = new Date().getFullYear();
 
   return (
-    <footer className="border-t border-slate-200 dark:border-white/10 bg-white dark:bg-[#050507] py-12 px-4 sm:px-6 lg:px-8 transition-colors duration-200">
+    <footer className="cv-section border-t border-slate-200 dark:border-white/10 bg-white dark:bg-[#050507] py-12 px-4 sm:px-6 lg:px-8 transition-colors duration-200">
       <div className="section-entrance max-w-7xl mx-auto flex flex-col md:flex-row items-start md:items-center justify-between gap-8">
         <div>
           <div className="font-display text-lg font-bold text-slate-950 dark:text-white tracking-tight">
@@ -45,7 +45,7 @@ export const Footer: React.FC = () => {
           </a>
         </div>
 
-        <div className="text-xs text-slate-600 dark:text-zinc-500 font-mono-tech">
+        <div className="text-xs text-slate-600 dark:text-zinc-400 font-mono-tech">
           <div>Designed &amp; engineered by Praveen.</div>
           <div className="mt-0.5">© {currentYear} All rights reserved.</div>
         </div>

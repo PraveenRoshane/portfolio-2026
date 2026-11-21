@@ -1,8 +1,7 @@
-import React, { useRef, useEffect, useLayoutEffect, useState } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 import { ChevronDown } from 'lucide-react';
-import { gsap } from '@/src/animations/gsap';
+import { observeWhenNearViewport } from '@/src/animations/scrollAnimations';
 import { MetricItem } from '@/src/data/portfolio';
-import { REDUCED_MOTION_QUERY } from '@/src/lib/utils';
 import { usePrefersReducedMotion } from '@/src/lib/usePrefersReducedMotion';
 
 interface MetricCardProps {
@@ -24,74 +23,66 @@ export const MetricCard: React.FC<MetricCardProps> = ({ metric, index }) => {
   const isExpanded = isHovered || isFocused || isPinned;
   const detailId = `metric-detail-${metric.id}`;
 
-  // Set initial collapsed state imperatively so React re-renders never overwrite GSAP inline styles
-  useLayoutEffect(() => {
-    const wrapper = detailWrapperRef.current;
-    const content = detailContentRef.current;
-    if (!wrapper || !content) return;
-    gsap.set(wrapper, { height: 0, opacity: 0 });
-    gsap.set(content, { opacity: 0, y: 10 });
-  }, []);
-
+  // Trigger entrance and number counter cleanly when MetricCard approaches the viewport
   useEffect(() => {
     const el = cardRef.current;
     if (!el) return;
 
-    const mm = gsap.matchMedia();
+    if (reducedMotion) {
+      setCount(metric.value);
+      setHasCompleted(true);
+      return;
+    }
 
-    mm.add(
-      {
-        reduceMotion: REDUCED_MOTION_QUERY,
-        allowMotion: '(prefers-reduced-motion: no-preference)',
-      },
-      (context) => {
-        const { reduceMotion: isReduced } = context.conditions ?? {};
-        if (isReduced) {
-          gsap.set(el, { opacity: 1, y: 0, clearProps: 'transform' });
-          setCount(metric.value);
-          setHasCompleted(true);
-          return;
-        }
+    let cancelled = false;
+    let entryTween: { kill: () => void } | null = null;
+    let counterTween: { kill: () => void } | null = null;
 
-        const counterObj = { val: 0 };
-
-        gsap.fromTo(
-          el,
-          { opacity: 0, y: 24 },
-          {
-            opacity: 1,
-            y: 0,
-            duration: 0.75,
-            delay: index * 0.1,
-            ease: 'power3.out',
-            clearProps: 'transform',
-            scrollTrigger: {
-              trigger: el,
-              start: 'top 88%',
-              toggleActions: 'play none none none',
-              onEnter: () => {
-                gsap.to(counterObj, {
-                  val: metric.value,
-                  duration: 1.6,
-                  delay: index * 0.1,
-                  ease: 'power2.out',
-                  onUpdate: () => {
-                    setCount(Math.round(counterObj.val));
-                  },
-                  onComplete: () => {
-                    setHasCompleted(true);
-                  },
-                });
-              },
+    const stopObserve = observeWhenNearViewport(
+      el,
+      () => {
+        void import('@/src/animations/gsap').then(({ gsap }) => {
+          if (cancelled) return;
+          const counterObj = { val: 0 };
+          entryTween = gsap.fromTo(
+            el,
+            { opacity: 0, y: 20 },
+            {
+              opacity: 1,
+              y: 0,
+              duration: 0.65,
+              delay: index * 0.08,
+              ease: 'power3.out',
+              force3D: true,
+              clearProps: 'transform,opacity',
+            }
+          );
+          counterTween = gsap.to(counterObj, {
+            val: metric.value,
+            duration: 1.4,
+            delay: index * 0.08,
+            ease: 'power2.out',
+            onUpdate: () => {
+              setCount(Math.round(counterObj.val));
             },
-          }
-        );
+            onComplete: () => {
+              setHasCompleted(true);
+            },
+          });
+        });
       },
-      el
+      '0px 0px -30px 0px'
     );
 
-    return () => mm.revert();
-  }, [metric.value, index]);
+    return () => {
+      cancelled = true;
+      stopObserve();
+      entryTween?.kill();
+      counterTween?.kill();
+    };
+  }, [metric.value, index, reducedMotion]);
+
+  const hasInteractedRef = useRef(false);
 
   // Smooth GSAP height: 'auto' reveal without shifting sibling cards or the Experience section below
   useEffect(() => {
@@ -100,53 +91,66 @@ export const MetricCard: React.FC<MetricCardProps> = ({ metric, index }) => {
     const content = detailContentRef.current;
     if (!card || !wrapper || !content) return;
 
-    gsap.killTweensOf([wrapper, content]);
-
-    if (reducedMotion) {
-      gsap.set(card, { zIndex: isExpanded ? 30 : 10 });
-      gsap.set(wrapper, { height: isExpanded ? 'auto' : 0, opacity: isExpanded ? 1 : 0 });
-      gsap.set(content, { opacity: isExpanded ? 1 : 0, y: 0 });
+    if (!hasInteractedRef.current && !isExpanded) {
       return;
     }
+    hasInteractedRef.current = true;
 
-    if (isExpanded) {
-      gsap.set(card, { zIndex: 30 });
-      gsap.to(wrapper, {
-        height: 'auto',
-        opacity: 1,
-        duration: 0.48,
-        ease: 'power3.out',
-        overwrite: 'auto',
-      });
-      gsap.to(content, {
-        opacity: 1,
-        y: 0,
-        duration: 0.4,
-        delay: 0.08,
-        ease: 'power2.out',
-        overwrite: 'auto',
-      });
-    } else {
-      gsap.set(card, { zIndex: 20 });
-      gsap.to(content, {
-        opacity: 0,
-        y: 8,
-        duration: 0.22,
-        ease: 'power2.in',
-        overwrite: 'auto',
-      });
-      gsap.to(wrapper, {
-        height: 0,
-        opacity: 0,
-        duration: 0.38,
-        delay: 0.04,
-        ease: 'power2.inOut',
-        overwrite: 'auto',
-        onComplete: () => {
-          gsap.set(card, { zIndex: 10 });
-        },
-      });
-    }
+    let cancelled = false;
+    void import('@/src/animations/gsap').then(({ gsap }) => {
+      if (cancelled) return;
+      gsap.killTweensOf([wrapper, content]);
+
+      if (reducedMotion) {
+        gsap.set(card, { zIndex: isExpanded ? 30 : 10 });
+        gsap.set(wrapper, { height: isExpanded ? 'auto' : 0, opacity: isExpanded ? 1 : 0 });
+        gsap.set(content, { opacity: isExpanded ? 1 : 0, y: 0 });
+        return;
+      }
+
+      if (isExpanded) {
+        gsap.set(card, { zIndex: 30 });
+        gsap.to(wrapper, {
+          height: 'auto',
+          opacity: 1,
+          duration: 0.48,
+          ease: 'power3.out',
+          overwrite: 'auto',
+        });
+        gsap.to(content, {
+          opacity: 1,
+          y: 0,
+          duration: 0.4,
+          delay: 0.08,
+          ease: 'power2.out',
+          overwrite: 'auto',
+        });
+      } else {
+        gsap.set(card, { zIndex: 20 });
+        gsap.to(content, {
+          opacity: 0,
+          y: 8,
+          duration: 0.22,
+          ease: 'power2.in',
+          overwrite: 'auto',
+        });
+        gsap.to(wrapper, {
+          height: 0,
+          opacity: 0,
+          duration: 0.38,
+          delay: 0.04,
+          ease: 'power2.inOut',
+          overwrite: 'auto',
+          onComplete: () => {
+            gsap.set(card, { zIndex: 10 });
+          },
+        });
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
   }, [isExpanded, reducedMotion]);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLButtonElement>) => {
@@ -201,7 +205,7 @@ export const MetricCard: React.FC<MetricCardProps> = ({ metric, index }) => {
         }`}
       >
         <div className="flex items-center justify-between mb-4">
-          <span className="font-mono-tech text-xs text-slate-500 dark:text-zinc-500">
+          <span className="font-mono-tech text-xs text-slate-600 dark:text-zinc-400">
             0{index + 1}
           </span>
 
@@ -220,7 +224,7 @@ export const MetricCard: React.FC<MetricCardProps> = ({ metric, index }) => {
             }}
             onBlur={() => setIsFocused(false)}
             onKeyDown={handleKeyDown}
-            className="after:absolute after:inset-0 after:rounded-2xl after:content-[''] inline-flex items-center justify-center w-6 h-6 rounded-md text-slate-500 dark:text-zinc-500 group-hover:text-cyan-700 dark:group-hover:text-cyan-400 focus:outline-none cursor-pointer"
+            className="after:absolute after:inset-0 after:rounded-2xl after:content-[''] inline-flex items-center justify-center w-6 h-6 rounded-md text-slate-600 dark:text-zinc-400 group-hover:text-cyan-700 dark:group-hover:text-cyan-400 focus:outline-none cursor-pointer"
           >
             <ChevronDown
               aria-hidden="true"
@@ -260,6 +264,7 @@ export const MetricCard: React.FC<MetricCardProps> = ({ metric, index }) => {
           id={detailId}
           ref={detailWrapperRef}
           aria-hidden={!isExpanded}
+          style={{ height: 0, opacity: 0 }}
           className="overflow-hidden"
         >
           <div ref={detailContentRef} className="pt-4">

@@ -7,7 +7,6 @@ import {
 } from '@/src/data/portfolio';
 import { SectionHeading } from '@/src/components/ui/SectionHeading';
 import { TechIcon } from '@/src/components/ui/TechIcon';
-import { gsap, ScrollTrigger } from '@/src/animations/gsap';
 import { usePrefersReducedMotion } from '@/src/lib/usePrefersReducedMotion';
 import { useTheme } from '@/src/lib/ThemeContext';
 
@@ -114,7 +113,7 @@ export const Skills: React.FC = () => {
     [activeCategory]
   );
 
-  // Fluid GPU-composited tab-switch transition on wrapper containers (avoids initial offscreen work & CSS hover conflicts)
+  // Fluid GPU-composited tab-switch transition on wrapper containers
   useLayoutEffect(() => {
     if (prevCategoryRef.current === activeCategory) {
       return;
@@ -124,65 +123,74 @@ export const Skills: React.FC = () => {
     const grid = gridRef.current;
     if (!grid) return;
 
-    const ctx = gsap.context(() => {
-      const items = gsap.utils.toArray<HTMLElement>('.skill-matrix-item');
-      const readout = categoryReadoutRef.current;
-      if (!items.length) return;
+    let cancelled = false;
+    let ctx: { revert: () => void } | null = null;
 
-      gsap.killTweensOf(items);
-      if (readout) gsap.killTweensOf(readout);
+    void import('@/src/animations/gsap').then(({ gsap, ScrollTrigger }) => {
+      if (cancelled || !gridRef.current) return;
+      ctx = gsap.context(() => {
+        const items = gsap.utils.toArray<HTMLElement>('.skill-matrix-item');
+        const readout = categoryReadoutRef.current;
+        if (!items.length) return;
 
-      if (reducedMotion) {
-        gsap.set(items, { opacity: 1, y: 0, scale: 1, clearProps: 'transform,opacity,willChange' });
-        if (readout) {
-          gsap.set(readout, { opacity: 1, y: 0, clearProps: 'transform,opacity' });
+        gsap.killTweensOf(items);
+        if (readout) gsap.killTweensOf(readout);
+
+        if (reducedMotion) {
+          gsap.set(items, { opacity: 1, y: 0, scale: 1, clearProps: 'transform,opacity,willChange' });
+          if (readout) {
+            gsap.set(readout, { opacity: 1, y: 0, clearProps: 'transform,opacity' });
+          }
+          ScrollTrigger.refresh();
+          return;
         }
-        ScrollTrigger.refresh();
-        return;
-      }
 
-      if (readout) {
+        if (readout) {
+          gsap.fromTo(
+            readout,
+            { opacity: 0.35, y: 4 },
+            {
+              opacity: 1,
+              y: 0,
+              duration: 0.24,
+              ease: 'power2.out',
+              clearProps: 'transform,opacity',
+            }
+          );
+        }
+
         gsap.fromTo(
-          readout,
-          { opacity: 0.35, y: 4 },
+          items,
+          {
+            opacity: 0,
+            y: 10,
+            scale: 0.985,
+          },
           {
             opacity: 1,
             y: 0,
-            duration: 0.24,
-            ease: 'power2.out',
-            clearProps: 'transform,opacity',
+            scale: 1,
+            duration: 0.28,
+            stagger: {
+              amount: 0.14,
+              from: 'start',
+            },
+            ease: 'power3.out',
+            overwrite: 'auto',
+            force3D: true,
+            clearProps: 'transform,opacity,willChange',
+            onComplete: () => {
+              ScrollTrigger.refresh();
+            },
           }
         );
-      }
+      }, grid);
+    });
 
-      gsap.fromTo(
-        items,
-        {
-          opacity: 0,
-          y: 10,
-          scale: 0.985,
-        },
-        {
-          opacity: 1,
-          y: 0,
-          scale: 1,
-          duration: 0.28,
-          stagger: {
-            amount: 0.14,
-            from: 'start',
-          },
-          ease: 'power3.out',
-          overwrite: 'auto',
-          force3D: true,
-          clearProps: 'transform,opacity,willChange',
-          onComplete: () => {
-            ScrollTrigger.refresh();
-          },
-        }
-      );
-    }, grid);
-
-    return () => ctx.revert();
+    return () => {
+      cancelled = true;
+      ctx?.revert();
+    };
   }, [activeCategory, reducedMotion]);
 
   // WAI-ARIA Tablist keyboard interaction (ArrowLeft, ArrowRight, Home, End)
@@ -323,7 +331,7 @@ export const Skills: React.FC = () => {
                 {skill.name}
               </span>
             </div>
-            <span className="text-[11px] font-mono-tech text-slate-600 dark:text-zinc-500 shrink-0">
+            <span className="text-[11px] font-mono-tech text-slate-600 dark:text-zinc-400 shrink-0">
               {skill.category}
             </span>
           </div>
@@ -339,7 +347,7 @@ export const Skills: React.FC = () => {
     <section
       id="skills"
       ref={sectionRef}
-      className="relative py-20 sm:py-24 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto border-t border-slate-200 dark:border-white/10"
+      className="cv-section relative py-20 sm:py-24 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto border-t border-slate-200 dark:border-white/10"
     >
       <div className="section-entrance">
         {/* Parallel 12-column Header + Structured Domain Filter Rail (mirrors 5/7 split below) */}
@@ -430,7 +438,7 @@ export const Skills: React.FC = () => {
                             : `text-[11px] ${
                                 isActive
                                   ? 'text-cyan-50 dark:text-[#050507]/85 font-semibold'
-                                  : 'text-slate-500 group-hover:text-cyan-700 dark:text-zinc-500 dark:group-hover:text-cyan-300'
+                                  : 'text-slate-600 group-hover:text-cyan-700 dark:text-zinc-400 dark:group-hover:text-cyan-300'
                               }`
                         }`}
                       >

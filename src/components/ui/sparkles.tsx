@@ -1,6 +1,5 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useMemo } from 'react';
 import { cn } from '@/src/lib/utils';
-import { usePrefersReducedMotion } from '@/src/lib/usePrefersReducedMotion';
 
 export interface SparklesProps {
   className?: string;
@@ -11,15 +10,21 @@ export interface SparklesProps {
   color?: string;
 }
 
-interface Particle {
-  x: number;
-  y: number;
-  size: number;
-  speedY: number;
-  speedX: number;
-  alpha: number;
-  twinkleSpeed: number;
-  phase: number;
+interface StarParticle {
+  id: number;
+  leftPct: number;
+  topPct: number;
+  sizePx: number;
+  durationSec: number;
+  delaySec: number;
+  minOpacity: number;
+  maxOpacity: number;
+  driftX: number;
+}
+
+function seededUnit(seed: number): number {
+  const x = Math.sin(seed * 12.9898 + 78.233) * 43758.5453;
+  return x - Math.floor(x);
 }
 
 export const Sparkles: React.FC<SparklesProps> = ({
@@ -30,94 +35,57 @@ export const Sparkles: React.FC<SparklesProps> = ({
   speed = 0.35,
   color = '#ffffff',
 }) => {
-  const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const reducedMotion = usePrefersReducedMotion();
+  const particles = useMemo<StarParticle[]>(() => {
+    const count = Math.min(Math.max(Math.round(density / 60), 14), 20);
+    const speedFactor = Math.max(0.2, speed);
 
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
+    return Array.from({ length: count }, (_, idx) => {
+      const s1 = seededUnit(idx + 1);
+      const s2 = seededUnit(idx + 101);
+      const s3 = seededUnit(idx + 201);
+      const s4 = seededUnit(idx + 301);
+      const s5 = seededUnit(idx + 401);
 
-    let animationFrameId = 0;
-
-    const count = Math.min(Math.max(Math.round(density / 8), 50), 220);
-
-    const resizeCanvas = () => {
-      if (!canvas) return;
-      const dpr = Math.min(window.devicePixelRatio || 1, 2);
-      canvas.width = canvas.offsetWidth * dpr;
-      canvas.height = canvas.offsetHeight * dpr;
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    };
-
-    resizeCanvas();
-
-    const particles: Particle[] = Array.from({ length: count }, () => ({
-      x: Math.random() * (canvas.offsetWidth || 600),
-      y: Math.random() * (canvas.offsetHeight || 320),
-      size: minSize + Math.random() * (maxSize - minSize),
-      speedY: -(0.1 + Math.random() * speed),
-      speedX: (Math.random() - 0.5) * 0.25,
-      alpha: 0.25 + Math.random() * 0.75,
-      twinkleSpeed: 0.015 + Math.random() * 0.03,
-      phase: Math.random() * Math.PI * 2,
-    }));
-
-    const render = () => {
-      const w = canvas.offsetWidth;
-      const h = canvas.offsetHeight;
-      ctx.clearRect(0, 0, w, h);
-
-      for (const p of particles) {
-        if (!reducedMotion) {
-          p.x += p.speedX;
-          p.y += p.speedY;
-          p.phase += p.twinkleSpeed;
-
-          if (p.y < -4) p.y = h + 4;
-          if (p.x < -4) p.x = w + 4;
-          if (p.x > w + 4) p.x = -4;
-        }
-
-        const currentAlpha = p.alpha * (0.5 + 0.5 * Math.sin(p.phase));
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
-        ctx.fillStyle = color;
-        ctx.globalAlpha = Math.max(0.05, Math.min(1, currentAlpha));
-        ctx.fill();
-      }
-
-      ctx.globalAlpha = 1;
-      if (!reducedMotion) {
-        animationFrameId = requestAnimationFrame(render);
-      }
-    };
-
-    const handleResize = () => {
-      resizeCanvas();
-      if (reducedMotion) {
-        render();
-      }
-    };
-
-    window.addEventListener('resize', handleResize, { passive: true });
-    render();
-
-    return () => {
-      if (animationFrameId) {
-        cancelAnimationFrame(animationFrameId);
-      }
-      window.removeEventListener('resize', handleResize);
-    };
-  }, [reducedMotion, density, minSize, maxSize, speed, color]);
+      return {
+        id: idx,
+        leftPct: 6 + s1 * 88,
+        topPct: 8 + s2 * 82,
+        sizePx: Math.max(1.5, (minSize + s3 * (maxSize - minSize)) * 1.45),
+        durationSec: (3.2 + s4 * 3.4) / (0.65 + speedFactor),
+        delaySec: -(s5 * 4.5),
+        minOpacity: 0.18 + s3 * 0.2,
+        maxOpacity: 0.65 + s4 * 0.35,
+        driftX: (s5 - 0.5) * 10,
+      };
+    });
+  }, [density, minSize, maxSize, speed]);
 
   return (
-    <canvas
-      ref={canvasRef}
+    <div
       aria-hidden="true"
-      className={cn('pointer-events-none block w-full h-full', className)}
-    />
+      className={cn('pointer-events-none relative block w-full h-full overflow-hidden', className)}
+    >
+      {particles.map((p) => (
+        <span
+          key={p.id}
+          className="sparkle-dot absolute rounded-full"
+          style={
+            {
+              left: `${p.leftPct.toFixed(2)}%`,
+              top: `${p.topPct.toFixed(2)}%`,
+              width: `${p.sizePx.toFixed(2)}px`,
+              height: `${p.sizePx.toFixed(2)}px`,
+              backgroundColor: color,
+              '--sp-min': p.minOpacity.toFixed(2),
+              '--sp-max': p.maxOpacity.toFixed(2),
+              '--sp-dur': `${p.durationSec.toFixed(2)}s`,
+              '--sp-delay': `${p.delaySec.toFixed(2)}s`,
+              '--sp-dx': `${p.driftX.toFixed(1)}px`,
+            } as React.CSSProperties
+          }
+        />
+      ))}
+    </div>
   );
 };
 

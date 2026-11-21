@@ -1,7 +1,6 @@
-import devOverflowImg from '@/src/assets/images/project_dev_overflow_1791396614426.jpg';
-import brainwaveImg from '@/src/assets/images/project_brainwave_1791396627915.jpg';
-import movixImg from '@/src/assets/images/project_movix_1791396639720.jpg';
-import sphereFallbackImg from '@/src/assets/images/hero_sphere_fallback_1791396651541.jpg';
+import devOverflowImg from '@/src/assets/images/project_dev_overflow.webp';
+import brainwaveImg from '@/src/assets/images/project_brainwave.webp';
+import movixImg from '@/src/assets/images/project_movix.webp';
 
 export interface MetricItem {
   id: string;
@@ -61,6 +60,7 @@ export interface PublicationItem {
   date: string;
   summary: string;
   domains: string[];
+  url: string;
 }
 
 export interface EducationItem {
@@ -78,10 +78,6 @@ export interface CertificationItem {
   issuer: string;
   domain: string;
 }
-
-export const PORTFOLIO_ASSETS = {
-  sphereFallback: sphereFallbackImg,
-};
 
 export const PERSONAL_INFO = {
   fullName: 'J.A.D. Praveen Roshane De Silva',
@@ -528,6 +524,7 @@ export const PUBLICATION_DATA: PublicationItem = {
   summary:
     'Research exploring multi-modal emotion recognition architectures to synthesize and classify human emotional states across complementary signal inputs, demonstrating applied analytical depth and research-driven problem solving.',
   domains: ['Multi-Modal Recognition', 'Applied Machine Intelligence', 'Signal Synthesis', 'Software Engineering Research'],
+  url: 'https://irjiet.com/article/EMOSENSE-Multi-Modal-Emotion-Recognition-to-Identify-Emotions/1888',
 };
 
 export const EDUCATION_DATA: EducationItem = {

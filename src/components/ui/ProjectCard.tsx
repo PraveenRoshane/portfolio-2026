@@ -1,14 +1,23 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { ArrowUpRight, Maximize2, Layers } from 'lucide-react';
 import { ProjectItem } from '@/src/data/portfolio';
-import { gsap } from '@/src/animations/gsap';
+import type gsapNamespace from 'gsap';
 import { usePrefersReducedMotion } from '@/src/lib/usePrefersReducedMotion';
+
+let gsapModulePromise: Promise<typeof gsapNamespace> | null = null;
+const getGsap = () => {
+  if (!gsapModulePromise) {
+    gsapModulePromise = import('@/src/animations/gsap').then((m) => m.gsap);
+  }
+  return gsapModulePromise;
+};
 
 interface ProjectCardProps {
   project: ProjectItem;
   onInspect: (project: ProjectItem) => void;
   onNavigateCard?: (direction: 'prev' | 'next' | 'first' | 'last') => void;
   cardRefCallback?: (el: HTMLElement | null) => void;
+  className?: string;
 }
 
 const TAP_SCROLL_THRESHOLD_PX = 8;
@@ -18,6 +27,7 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({
   onInspect,
   onNavigateCard,
   cardRefCallback,
+  className = '',
 }) => {
   const cardRef = useRef<HTMLElement | null>(null);
   const imageRef = useRef<HTMLImageElement>(null);
@@ -32,28 +42,41 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({
 
   useEffect(() => {
     if (reducedMotion && imageRef.current) {
-      gsap.killTweensOf(imageRef.current);
-      gsap.set(imageRef.current, { scale: 1, x: 0, y: 0, clearProps: 'transform' });
+      if (gsapModulePromise) {
+        void getGsap().then((gsap) => {
+          if (!imageRef.current) return;
+          gsap.killTweensOf(imageRef.current);
+          gsap.set(imageRef.current, { scale: 1, x: 0, y: 0, clearProps: 'transform' });
+        });
+      } else {
+        imageRef.current.style.transform = '';
+      }
     }
   }, [reducedMotion]);
 
   const animateImageZoomIn = () => {
     if (reducedMotion || !imageRef.current) return;
-    gsap.to(imageRef.current, {
-      scale: 1.04,
-      duration: 0.5,
-      ease: 'power3.out',
+    void getGsap().then((gsap) => {
+      if (!imageRef.current) return;
+      gsap.to(imageRef.current, {
+        scale: 1.04,
+        duration: 0.5,
+        ease: 'power3.out',
+      });
     });
   };
 
   const animateImageReset = () => {
     if (reducedMotion || !imageRef.current) return;
-    gsap.to(imageRef.current, {
-      scale: 1,
-      x: 0,
-      y: 0,
-      duration: 0.5,
-      ease: 'power3.out',
+    void getGsap().then((gsap) => {
+      if (!imageRef.current) return;
+      gsap.to(imageRef.current, {
+        scale: 1,
+        x: 0,
+        y: 0,
+        duration: 0.5,
+        ease: 'power3.out',
+      });
     });
   };
 
@@ -74,11 +97,14 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({
     const rect = cardRef.current.getBoundingClientRect();
     const relX = (e.clientX - rect.left) / rect.width - 0.5;
     const relY = (e.clientY - rect.top) / rect.height - 0.5;
-    gsap.to(imageRef.current, {
-      x: relX * -14,
-      y: relY * -14,
-      duration: 0.4,
-      ease: 'power2.out',
+    void getGsap().then((gsap) => {
+      if (!imageRef.current) return;
+      gsap.to(imageRef.current, {
+        x: relX * -14,
+        y: relY * -14,
+        duration: 0.4,
+        ease: 'power2.out',
+      });
     });
   };
 
@@ -171,7 +197,7 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({
       onPointerEnter={handlePointerEnter}
       onPointerLeave={handlePointerLeave}
       onPointerMove={handlePointerMove}
-      className="project-card-item group relative grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-center p-6 sm:p-8 lg:p-10 rounded-2xl bg-white dark:bg-[#0B0B10] border border-slate-300/90 dark:border-white/10 hover:border-cyan-700 dark:hover:border-cyan-400/40 focus-within:border-cyan-700 dark:focus-within:border-cyan-400/50 shadow-xs dark:shadow-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-700 dark:focus-visible:ring-cyan-400 focus-visible:ring-offset-2 focus-visible:ring-offset-[#F8FAFC] dark:focus-visible:ring-offset-[#050507] transition-colors duration-200 touch-pan-y [-webkit-tap-highlight-color:transparent]"
+      className={`project-card-item group relative grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-9 items-stretch p-5 sm:p-7 lg:p-8 rounded-2xl bg-white dark:bg-[#0B0B10] border border-slate-300/90 dark:border-white/10 hover:border-cyan-700 dark:hover:border-cyan-400/40 focus-within:border-cyan-700 dark:focus-within:border-cyan-400/50 shadow-xs dark:shadow-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-700 dark:focus-visible:ring-cyan-400 focus-visible:ring-offset-2 focus-visible:ring-offset-[#F8FAFC] dark:focus-visible:ring-offset-[#050507] transition-colors duration-200 [touch-action:pan-x_pan-y] [-webkit-tap-highlight-color:transparent] ${className}`}
     >
       {/* Left / Top Media Container with Touch-Safe Tap-to-Inspect */}
       <div
@@ -179,7 +205,7 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({
         onPointerMove={handleMediaPointerMove}
         onPointerCancel={handleMediaPointerCancel}
         onClick={handleMediaClick}
-        className="lg:col-span-7 relative overflow-hidden rounded-xl bg-slate-100 dark:bg-[#12121A] border border-slate-200 dark:border-white/10 aspect-video cursor-pointer touch-pan-y select-none"
+        className="lg:col-span-6 relative overflow-hidden rounded-xl bg-slate-100 dark:bg-[#12121A] border border-slate-200 dark:border-white/10 aspect-[16/10] lg:aspect-auto lg:h-full lg:min-h-[320px] cursor-pointer [touch-action:pan-x_pan-y] select-none"
       >
         <div className="project-card-media-inner w-full h-full will-change-transform">
           {!imgError ? (
@@ -187,6 +213,10 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({
               ref={imageRef}
               src={project.image}
               alt={`${project.title} — ${project.subtitle}`}
+              width={1200}
+              height={670}
+              loading="lazy"
+              decoding="async"
               referrerPolicy="no-referrer"
               draggable={false}
               onError={() => setImgError(true)}
@@ -222,10 +252,10 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({
       </div>
 
       {/* Right / Content Column */}
-      <div className="lg:col-span-5 flex flex-col justify-between">
+      <div className="lg:col-span-6 flex flex-col justify-between">
         <div>
           {/* Clean unboxed metadata with typographic separators */}
-          <div className="project-card-stagger flex flex-wrap items-center gap-2 text-xs font-mono-tech text-slate-600 dark:text-zinc-400 mb-3">
+          <div className="project-card-stagger flex flex-wrap items-center gap-2 text-xs font-mono-tech text-slate-600 dark:text-zinc-400 mb-2.5">
             <span className="text-cyan-700 dark:text-cyan-400 font-semibold">{project.index}.</span>
             <span aria-hidden="true">·</span>
             <span>{project.subtitle}</span>
@@ -233,24 +263,24 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({
 
           <h3
             id={`project-heading-${project.id}`}
-            className="project-card-stagger font-display text-2xl sm:text-3xl lg:text-4xl font-bold text-slate-950 dark:text-zinc-100 tracking-tight mb-4"
+            className="project-card-stagger font-display text-2xl sm:text-3xl font-bold text-slate-950 dark:text-zinc-100 tracking-tight mb-3"
           >
             {project.title}
           </h3>
 
-          <p className="project-card-stagger text-sm sm:text-base text-slate-700 dark:text-zinc-300 leading-relaxed mb-6">
+          <p className="project-card-stagger text-sm sm:text-[15px] text-slate-700 dark:text-zinc-300 leading-relaxed mb-5">
             {project.description}
           </p>
 
           {/* Engineering Highlights */}
-          <div className="project-card-stagger mb-6">
-            <div className="text-xs font-mono-tech text-slate-600 dark:text-zinc-400 mb-2.5">
+          <div className="project-card-stagger mb-5">
+            <div className="text-xs font-mono-tech text-slate-600 dark:text-zinc-400 mb-2">
               Key Capabilities &amp; Architecture
             </div>
-            <ul className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1.5 text-xs sm:text-sm text-slate-700 dark:text-zinc-300">
+            <ul className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1.5 text-xs sm:text-[13px] text-slate-700 dark:text-zinc-300">
               {project.highlights.map((item, idx) => (
                 <li key={idx} className="flex items-start gap-2">
-                  <span className="text-cyan-700 dark:text-cyan-400 mt-1 select-none" aria-hidden="true">
+                  <span className="text-cyan-700 dark:text-cyan-400 mt-0.5 select-none" aria-hidden="true">
                     ·
                   </span>
                   <span>{item}</span>
@@ -260,7 +290,7 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({
           </div>
         </div>
 
-        <div className="project-card-stagger pt-5 border-t border-slate-200 dark:border-white/10 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="project-card-stagger pt-4 border-t border-slate-200 dark:border-white/10 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           {/* Unboxed tech stack with middle-dot separators */}
           <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs font-mono-tech text-slate-600 dark:text-zinc-400">
             {project.technologies.map((tech, idx) => (
